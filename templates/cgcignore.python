@@ -1,0 +1,10 @@
+# Example CodeGraphContext excludes — tune per repo (copy to repo root as .cgcignore)
+
+node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/dist/
+**/build/
+logs/
+*.log
+*.pyc

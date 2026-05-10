@@ -1,0 +1,62 @@
+---
+description: Route relational code questions to CodeGraphContext MCP instead of grep
+alwaysApply: true
+---
+
+# Code graph tool routing
+
+The `CodeGraphContext` MCP server indexes repos you ran `codegraphcontext index` on. Backend is **Neo4j 5.21** in local Docker (`cgc-neo4j`, bolt `127.0.0.1:7687`, browser `http://localhost:7474`). Graph-aware tools beat grep for relational questions.
+
+## Use CodeGraphContext FIRST when the question is relational
+
+| Question shape | CGC tool | Notes |
+|----|----|----|
+| "who calls X" (direct callers, default) | `analyze_code_relationships` (`find_callers`) | one hop, fast |
+| "all transitive callers of X" (only if explicitly asked) | `analyze_code_relationships` (`find_all_callers`) | unbounded `[:CALLS*]` — slow on hot symbols; can hit tx timeout. Prefer `call_chain` with known endpoints. |
+| "what does X call" (direct callees) | `analyze_code_relationships` (`find_callees`) | one hop |
+| "trace from X to Y" | `analyze_code_relationships` (`call_chain`) | bounded path between two named functions |
+| "who imports X", "module deps" | `analyze_code_relationships` (`find_importers` / `module_deps`) | import graph |
+| "class hierarchy", "subclasses", "overrides" | `analyze_code_relationships` (`class_hierarchy` / `overrides`) | inheritance |
+| "where is symbol X defined?" | `find_code` | symbol lookup |
+| "is this dead code?" | `analyze_code_relationships` (`dead_code`) or `find_dead_code` | unused functions |
+| "most complex / hot-spots" | `find_most_complex_functions`, `calculate_cyclomatic_complexity` | complexity |
+| "functions with decorator X / argument Y" | `analyze_code_relationships` (`find_functions_by_decorator` / `find_functions_by_argument`) | filtered queries |
+
+## Keep using grep / Glob / Read when
+
+- Literal string or regex in configs, YAML, env, markdown, SQL.
+- Finding files by name pattern.
+- Sources CGC does not parse (e.g. some frameworks, Dockerfile, Terraform) or file types without parsers in your CGC version.
+- Reading a path you already know.
+
+## SemanticSearch
+
+Useful for fuzzy "how does X work" without a symbol name. Once you have a concrete symbol, prefer CGC.
+
+## Worked examples
+
+GOOD — relational:
+
+- "What calls `some_helper`?"
+  -> `analyze_code_relationships` with `query_type=find_callers`, `target=some_helper` (NOT `find_all_callers` unless user asked for transitive).
+- "Call chain from `api.handlers.foo` to `db.session`."
+  -> `query_type=call_chain`.
+- "Most complex functions in this package?"
+  -> `find_most_complex_functions`.
+
+DANGER — transitive only when user explicitly wants it:
+
+- `find_all_callers` / `find_all_callees` use unbounded `[:CALLS*]`. Hot symbols (fixtures, session deps, logging helpers) can hit Neo4j transaction timeout. Default "who calls X" -> `find_callers`.
+
+BAD — literal / file:
+
+- Scattered `TODO` strings -> `Grep`.
+- Env var names, not symbols -> `Grep`.
+
+## Operational
+
+- Staleness: graph reflects last `codegraphcontext index` / `make cgc-index`. Recently edited files may need re-index or grep.
+- Anything never indexed is invisible to CGC.
+- Neo4j: `~/.codegraphcontext/neo4j/` (compose + `.password`). Manage via **cursor-cgc** repo: `make cgc-up`, `make cgc-down`, etc. Credentials also in `~/.codegraphcontext/.env`.
+- Prefer indexing when other clients are not hammering the DB.
+- Query timeout defaults to 30s in compose (`NEO4J_db_transaction_timeout`). Timeout errors are expected on bad queries; use `find_callers` or narrow the question.

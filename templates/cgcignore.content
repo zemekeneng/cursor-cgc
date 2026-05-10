@@ -1,0 +1,6 @@
+# Example: content / YAML-heavy repo — CGC has no YAML parser; ignore bulk content
+
+venv/
+**/generated/
+*.pdf
+*.dot
