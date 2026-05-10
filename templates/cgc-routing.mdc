@@ -3,11 +3,13 @@ description: Route relational code questions to CodeGraphContext MCP instead of 
 alwaysApply: true
 ---
 
-# Code graph tool routing
+# Code graph tool routing — REQUIRED for relational queries
 
-The `CodeGraphContext` MCP server indexes repos you ran `codegraphcontext index` on. Backend is **Neo4j 5.21** in local Docker (`cgc-neo4j`, bolt `127.0.0.1:7687`, browser `http://localhost:7474`). Graph-aware tools beat grep for relational questions.
+**MANDATORY behavior:** when the user asks a relational code question (callers, callees, call chain, importers, class hierarchy, dead code, complexity, decorators, arguments), **the FIRST tool call MUST be a `CodeGraphContext` MCP tool** (e.g. `mcp_user-CodeGraphContext_analyze_code_relationships`). Do NOT use `Grep`, `Glob`, `Read`, or `SemanticSearch` first for these questions. Only fall back to grep if a CGC tool returns an explicit error or empty result.
 
-## Use CodeGraphContext FIRST when the question is relational
+The `CodeGraphContext` MCP server indexes repos you ran `codegraphcontext index` on. Backend is **Neo4j 5.21** in local Docker (`cgc-neo4j`, bolt `127.0.0.1:7687`, browser `http://localhost:7474`).
+
+## Required routing for relational questions
 
 | Question shape | CGC tool | Notes |
 |----|----|----|
@@ -35,14 +37,19 @@ Useful for fuzzy "how does X work" without a symbol name. Once you have a concre
 
 ## Worked examples
 
-GOOD — relational:
+GOOD — relational, FIRST action is the MCP tool, not grep:
 
-- "What calls `some_helper`?"
-  -> `analyze_code_relationships` with `query_type=find_callers`, `target=some_helper` (NOT `find_all_callers` unless user asked for transitive).
+- User: "What functions call `some_helper`?"
+  Assistant FIRST tool call: `analyze_code_relationships` with `query_type=find_callers`, `target=some_helper`.
+  (Do **not** start with `Grep` for `some_helper`. Do **not** Glob the MCP descriptor folder — call the tool directly.)
 - "Call chain from `api.handlers.foo` to `db.session`."
   -> `query_type=call_chain`.
 - "Most complex functions in this package?"
   -> `find_most_complex_functions`.
+
+ANTI-PATTERN — do not do this:
+
+- User: "Who calls X?" -> Assistant runs `Grep` for `X`. **Wrong.** Call `analyze_code_relationships find_callers` first; only fall back to grep if it errors.
 
 DANGER — transitive only when user explicitly wants it:
 
