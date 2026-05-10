@@ -8,9 +8,13 @@ NO_MCP=0
 NO_CURSOR_RULE=0
 FORCE_CURSOR_RULE=0
 INDEX_PATHS=()
+PROJECT_RULE_REPO=""
 
 usage() {
-  echo "Usage: $0 [--no-mcp] [--no-cursor-rule] [--force-cursor-rule] [--index PATH] ..."
+  echo "Usage: $0 [--no-mcp] [--no-cursor-rule] [--force-cursor-rule] [--project-rule-repo DIR] [--index PATH] ..."
+  echo ""
+  echo "Note: Cursor lists rules from <repo>/.cursor/rules and from Settings → Rules (User Rules)."
+  echo "      Files under ~/.cursor/rules/ are not shown in the Rules UI (still OK as a backup copy)."
   exit 1
 }
 
@@ -22,6 +26,10 @@ while [[ $# -gt 0 ]]; do
     --index)
       if [[ $# -lt 2 ]]; then usage; fi
       INDEX_PATHS+=("$2")
+      shift 2 ;;
+    --project-rule-repo)
+      if [[ $# -lt 2 ]]; then usage; fi
+      PROJECT_RULE_REPO="$2"
       shift 2 ;;
     -h|--help) usage ;;
     *) echo "Unknown option: $1"; usage ;;
@@ -128,6 +136,14 @@ else
   echo "==> skip Cursor rule (--no-cursor-rule)"
 fi
 
+if [[ -n "$PROJECT_RULE_REPO" ]]; then
+  [[ -d "$PROJECT_RULE_REPO" ]] || die "not a directory: $PROJECT_RULE_REPO"
+  pr="${PROJECT_RULE_REPO%/}/.cursor/rules"
+  mkdir -p "$pr"
+  cp -f "$TEMPLATE_RULE" "$pr/cgc-routing.mdc"
+  echo "==> project rule (shows in Cursor Rules UI): ${pr}/cgc-routing.mdc"
+fi
+
 echo "==> Neo4j up"
 make -C "$CURSOR_CGC_ROOT" cgc-up
 
@@ -144,3 +160,7 @@ echo "  Password file: ${PASS_FILE}"
 echo "  CLI: ${CGC_BIN}"
 echo "  Health check: make -C ${CURSOR_CGC_ROOT} cgc-doctor"
 echo "  Index more repos: make -C ${CURSOR_CGC_ROOT} cgc-index PATHS=\"/path/to/repo\""
+if [[ -z "$PROJECT_RULE_REPO" ]] && [[ "$NO_CURSOR_RULE" -eq 0 ]]; then
+  echo "  Rules UI: open Cursor Settings → Rules, or add file under your repo .cursor/rules/"
+  echo "            (~/.cursor/rules/ is not listed there; use --project-rule-repo DIR next time)"
+fi

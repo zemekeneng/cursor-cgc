@@ -7,12 +7,13 @@ CGC_BIN := $(shell command -v codegraphcontext 2>/dev/null)
 CGC_NEO4J_DIR := $(HOME)/.codegraphcontext/neo4j
 CGC_COMPOSE := docker compose -f $(CGC_NEO4J_DIR)/docker-compose.yml
 
-.PHONY: help cgc-bootstrap cgc-doctor cgc-up cgc-down cgc-status cgc-logs \
+.PHONY: help cgc-bootstrap cgc-doctor cgc-copy-rule cgc-up cgc-down cgc-status cgc-logs \
 	cgc-index cgc-reset cgc-browser cgc-password cgc-tx cgc-kill cgc-kill-all cgc-uninstall
 
 help:
 	@echo "cursor-cgc targets:"
 	@echo "  make cgc-bootstrap [ARGS='--no-mcp --index /path']  — full install + Neo4j up"
+	@echo "  make cgc-copy-rule REPO=/path  — install MCP routing rule where Cursor UI lists it"
 	@echo "  make cgc-doctor    — verify stack"
 	@echo "  make cgc-up / cgc-down / cgc-status / cgc-logs"
 	@echo "  make cgc-index PATHS=\"/repo1 /repo2\"  — re-index (requires paths)"
@@ -23,6 +24,12 @@ help:
 
 cgc-bootstrap:
 	@bash "$(MAKEFILE_DIR)scripts/bootstrap.sh" $(ARGS)
+
+cgc-copy-rule:
+	@test -n "$(REPO)" || (echo 'usage: make cgc-copy-rule REPO=/path/to/git/repo'; exit 1)
+	@mkdir -p "$(REPO)/.cursor/rules"
+	@cp -f "$(MAKEFILE_DIR)templates/cgc-routing.mdc" "$(REPO)/.cursor/rules/cgc-routing.mdc"
+	@echo "installed $(REPO)/.cursor/rules/cgc-routing.mdc (reload Cursor / reopen project to refresh Rules list)"
 
 cgc-doctor:
 	@bash "$(MAKEFILE_DIR)scripts/doctor.sh"

@@ -1,6 +1,6 @@
 # cursor-cgc
 
-Reproducible [CodeGraphContext](https://github.com/CodeGraphContext/CodeGraphContext) setup for **Cursor**: pipx CLI, **Neo4j 5.21** in Docker (Bolt `127.0.0.1:7687`, Browser `http://localhost:7474`), MCP wiring in `~/.cursor/mcp.json`, optional global Cursor rule for tool routing.
+Reproducible [CodeGraphContext](https://github.com/CodeGraphContext/CodeGraphContext) setup for **Cursor**: pipx CLI, **Neo4j 5.21** in Docker (Bolt `127.0.0.1:7687`, Browser `http://localhost:7474`), MCP wiring in `~/.cursor/mcp.json`, optional routing rule (see **Cursor: where rules appear** below).
 
 **Does not live inside your app repos.** Index whichever paths you want with `make cgc-index`.
 
@@ -37,15 +37,36 @@ bash scripts/bootstrap.sh --no-mcp --no-cursor-rule --index /path/to/repo
 | Flag | Meaning |
 |------|---------|
 | `--no-mcp` | Do not modify `~/.cursor/mcp.json` |
-| `--no-cursor-rule` | Do not install `~/.cursor/rules/cgc-routing.mdc` |
-| `--force-cursor-rule` | Overwrite routing rule even if it was edited |
+| `--no-cursor-rule` | Do not install backup copy under `~/.cursor/rules/` |
+| `--force-cursor-rule` | Overwrite `~/.cursor/rules/cgc-routing.mdc` even if edited |
+| `--project-rule-repo DIR` | Copy rule to `DIR/.cursor/rules/` (**this path shows in Cursor Rules UI**) |
 | `--index PATH` | Run `codegraphcontext index --force` on `PATH` (repeatable) |
+
+## Cursor: where rules appear
+
+Per [Cursor docs](https://cursor.com/docs/context/rules):
+
+- **Project rules** live in **`<opened-repo>/.cursor/rules/`** — listed in the Rules UI.
+- **User rules** live in **Cursor Settings → Rules** — global text for Agent chat.
+
+`~/.cursor/rules/*.mdc` is **not** a documented rules location, so the UI will not list files you copy there. Use a project path or User Rules.
+
+**Ways to activate routing:**
+
+1. Per repo (visible in sidebar):
+   ```bash
+   make cgc-copy-rule REPO=/path/to/your/repo
+   ```
+   or `make cgc-bootstrap ARGS='--project-rule-repo /path/to/your/repo'`
+
+2. Global: **Cursor Settings → Rules** → paste [templates/cgc-routing.mdc](templates/cgc-routing.mdc).
 
 ## Makefile targets
 
 | Target | Purpose |
 |--------|---------|
 | `cgc-bootstrap` | Run `scripts/bootstrap.sh` (pass extra args via `ARGS='...'`) |
+| `cgc-copy-rule` | `make cgc-copy-rule REPO=/path/to/repo` → installs project rule Cursor can see |
 | `cgc-doctor` | Verify install, pins, Neo4j, MCP entry, non-empty graph |
 | `cgc-up` / `cgc-down` | Start/stop Neo4j container |
 | `cgc-status` | Container + `codegraphcontext list` tail |
